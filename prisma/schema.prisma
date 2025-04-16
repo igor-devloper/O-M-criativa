@@ -1,0 +1,87 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  plants            Plant[]
+  maintenanceRecords MaintenanceRecord[]
+
+  @@map("users")
+}
+
+model Plant {
+  id                     Int       @id @default(autoincrement())
+  name                   String
+  address                String
+  latitude               Decimal   @db.Decimal(10, 8)
+  longitude              Decimal   @db.Decimal(11, 8)
+  status                 String    @default("active")
+  lastMaintenanceDate    DateTime? @map("last_maintenance_date")
+  nextMaintenanceDate    DateTime? @map("next_maintenance_date")
+  maintenanceSequenceOrder Int?     @map("maintenance_sequence_order")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  
+  userId                 String    @map("user_id")
+  user                   User      @relation(fields: [userId], references: [id])
+  
+  maintenanceRecords     MaintenanceRecord[]
+
+  @@map("plants")
+}
+
+model ChecklistItem {
+  id          Int       @id @default(autoincrement())
+  description String
+  createdAt   DateTime  @default(now()) @map("created_at")
+  
+  completedItems CompletedChecklistItem[]
+
+  @@map("checklist_items")
+}
+
+model MaintenanceRecord {
+  id        Int       @id @default(autoincrement())
+  startDate DateTime  @map("start_date")
+  endDate   DateTime? @map("end_date")
+  notes     String?
+  createdAt DateTime  @default(now()) @map("created_at")
+  
+  plantId   Int       @map("plant_id")
+  plant     Plant     @relation(fields: [plantId], references: [id])
+  
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id])
+  
+  completedItems CompletedChecklistItem[]
+
+  @@map("maintenance_records")
+}
+
+model CompletedChecklistItem {
+  id            Int       @id @default(autoincrement())
+  completed     Boolean   @default(false)
+  notes         String?
+  completedAt   DateTime? @map("completed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  
+  maintenanceId Int       @map("maintenance_id")
+  maintenance   MaintenanceRecord @relation(fields: [maintenanceId], references: [id])
+  
+  checklistItemId Int      @map("checklist_item_id")
+  checklistItem   ChecklistItem @relation(fields: [checklistItemId], references: [id])
+
+  @@map("completed_checklist_items")
+}
