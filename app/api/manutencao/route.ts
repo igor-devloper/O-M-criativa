@@ -2,37 +2,6 @@ import { prisma } from "@/lib/prisma"
 import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
 
-export async function GET() {
-  try {
-    const { userId } = await auth()
-
-    if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 })
-    }
-
-    const maintenance = await prisma.maintenanceRecord.findMany({
-      where: {
-        userId,
-      },
-      include: {
-        plant: {
-          select: {
-            name: true,
-          },
-        },
-      },
-      orderBy: {
-        startDate: "desc",
-      },
-    })
-
-    return NextResponse.json(maintenance)
-  } catch (error) {
-    console.error("[MAINTENANCE_GET]", error)
-    return new NextResponse("Internal Error", { status: 500 })
-  }
-}
-
 export async function POST(req: Request) {
   try {
     const { userId } = await auth()
@@ -49,7 +18,7 @@ export async function POST(req: Request) {
     }
 
     // Usar uma transação para garantir a integridade dos dados
-    const result = await prisma.$transaction(async (tx: { maintenanceRecord: { create: (arg0: { data: { plantId: any; userId: any; startDate: Date; endDate: Date | null; notes: any } }) => any }; completedChecklistItem: { create: (arg0: { data: { maintenanceId: any; checklistItemId: any; completed: any; notes: any; completedAt: Date | null } }) => any }; plant: { update: (arg0: { where: { id: any } | { id: any } | { id: any }; data: { lastMaintenanceDate: Date; nextMaintenanceDate: null } | { nextMaintenanceDate: Date } | { nextMaintenanceDate: Date } }) => any; findUnique: (arg0: { where: { id: any }; select: { maintenanceSequenceOrder: boolean } }) => any; findFirst: (arg0: { where: { userId: any; maintenanceSequenceOrder: { gt: any } } | { userId: any }; orderBy: { maintenanceSequenceOrder: string } | { maintenanceSequenceOrder: string } }) => any } }) => {
+    const result = await prisma.$transaction(async (tx) => {
       // Inserir o registro de manutenção
       const maintenance = await tx.maintenanceRecord.create({
         data: {
@@ -76,9 +45,7 @@ export async function POST(req: Request) {
 
       // Atualizar a data da última manutenção da usina
       await tx.plant.update({
-        where: {
-          id: plantId,
-        },
+        where: { id: plantId },
         data: {
           lastMaintenanceDate: endDate ? new Date(endDate) : new Date(startDate),
           nextMaintenanceDate: null,
@@ -87,44 +54,34 @@ export async function POST(req: Request) {
 
       // Definir a próxima usina na sequência para manutenção
       const currentPlant = await tx.plant.findUnique({
-        where: {
-          id: plantId,
-        },
-        select: {
-          maintenanceSequenceOrder: true,
-        },
+        where: { id: plantId },
+        select: { maintenanceSequenceOrder: true },
       })
 
-      if (currentPlant && currentPlant.maintenanceSequenceOrder) {
-        // Encontrar a próxima usina na sequência
+      if (currentPlant?.maintenanceSequenceOrder !== null) {
         const nextPlant = await tx.plant.findFirst({
           where: {
             userId,
             maintenanceSequenceOrder: {
-              gt: currentPlant.maintenanceSequenceOrder,
+              gt: currentPlant?.maintenanceSequenceOrder,
             },
           },
           orderBy: {
-            maintenanceSequenceOrder: "asc",
+            maintenanceSequenceOrder: "asc", // ✅ corrigido
           },
         })
 
         if (nextPlant) {
-          // Atualizar a próxima usina
           await tx.plant.update({
-            where: {
-              id: nextPlant.id,
-            },
+            where: { id: nextPlant.id },
             data: {
               nextMaintenanceDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // +30 dias
             },
           })
         } else {
-          // Se não houver próxima usina, voltar para a primeira
+          // Voltar para a primeira
           const firstPlant = await tx.plant.findFirst({
-            where: {
-              userId,
-            },
+            where: { userId },
             orderBy: {
               maintenanceSequenceOrder: "asc",
             },
@@ -132,11 +89,9 @@ export async function POST(req: Request) {
 
           if (firstPlant) {
             await tx.plant.update({
-              where: {
-                id: firstPlant.id,
-              },
+              where: { id: firstPlant.id },
               data: {
-                nextMaintenanceDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // +30 dias
+                nextMaintenanceDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
               },
             })
           }
