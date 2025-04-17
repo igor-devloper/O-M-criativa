@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { auth } from "@clerk/nextjs/server"
+import { auth, clerkClient } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
 
 export async function GET() {
@@ -47,11 +47,13 @@ export async function POST(req: Request) {
     })
 
     if (!user) {
+      // Get user data from Clerk
+      const clerkUser = (await clerkClient()).users.getUser(userId)
       await prisma.user.create({
         data: {
           id: userId,
-          email: "user@example.com", // Idealmente, você obteria esses dados do Clerk
-          name: "User",
+          email: (await clerkUser).emailAddresses[0]?.emailAddress || "",
+          name: `${(await clerkUser).firstName || ""} ${(await clerkUser).lastName || ""}`.trim() || "User",
         },
       })
     }
