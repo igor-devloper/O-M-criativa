@@ -19,6 +19,20 @@ export default async function DashboardPage() {
     where: { userId },
   })
 
+  // Buscar a próxima planta com manutenção agendada
+  const nextPlantMaintenance = await prisma.plant.findFirst({
+    where: {
+      userId,
+      nextMaintenanceDate: {
+        not: null,
+        gt: new Date(),
+      },
+    },
+    orderBy: {
+      nextMaintenanceDate: "asc",
+    },
+  })
+
   // Find the next scheduled maintenance (with a future start date)
   const nextMaintenance = await prisma.maintenanceRecord.findFirst({
     where: {
@@ -80,7 +94,14 @@ export default async function DashboardPage() {
               <CardDescription>Usina com manutenção programada</CardDescription>
             </CardHeader>
             <CardContent>
-              {nextMaintenance ? (
+              {nextPlantMaintenance ? (
+                <>
+                  <p className="text-xl font-bold">{nextPlantMaintenance.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {format(new Date(nextPlantMaintenance.nextMaintenanceDate!), "PPP", { locale: ptBR })}
+                  </p>
+                </>
+              ) : nextMaintenance ? (
                 <>
                   <p className="text-xl font-bold">{nextMaintenance.plant.name}</p>
                   <p className="text-sm text-muted-foreground">

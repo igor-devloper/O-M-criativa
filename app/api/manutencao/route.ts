@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
+import { addDays, addMonths } from "date-fns"
 
 export async function POST(req: Request) {
   try {
@@ -11,7 +12,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { plantId, startDate, endDate, notes, checklistItems } = body
+    const { plantId, startDate, endDate, notes, checklistItems, isFirstPlant } = body
 
     if (!plantId || !startDate || !checklistItems) {
       return new NextResponse("Missing required fields", { status: 400 })
@@ -47,53 +48,120 @@ export async function POST(req: Request) {
       await tx.plant.update({
         where: { id: plantId },
         data: {
-          lastMaintenanceDate: endDate ? new Date(endDate) : new Date(startDate),
+          lastMaintenanceDate: new Date(),
           nextMaintenanceDate: null,
         },
       })
 
-      // Definir a próxima usina na sequência para manutenção
-      const currentPlant = await tx.plant.findUnique({
-        where: { id: plantId },
-        select: { maintenanceSequenceOrder: true },
-      })
-
-      if (currentPlant?.maintenanceSequenceOrder !== null) {
-        const nextPlant = await tx.plant.findFirst({
+      // Se for a primeira usina com manutenção, configurar as próximas
+      if (isFirstPlant) {
+        // Obter todas as usinas do usuário, exceto a atual
+        const otherPlants = await tx.plant.findMany({
           where: {
             userId,
-            maintenanceSequenceOrder: {
-              gt: currentPlant?.maintenanceSequenceOrder,
-            },
+            id: { not: plantId },
           },
           orderBy: {
-            maintenanceSequenceOrder: "asc", // ✅ corrigido
+            maintenanceSequenceOrder: "asc",
           },
         })
 
-        if (nextPlant) {
+        // Configurar a próxima manutenção para cada usina, uma semana após a anterior
+        let nextDate = addDays(new Date(startDate), 7)
+
+        for (const plant of otherPlants) {
           await tx.plant.update({
-            where: { id: nextPlant.id },
+            where: { id: plant.id },
             data: {
-              nextMaintenanceDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // +30 dias
+              nextMaintenanceDate: nextDate,
             },
           })
-        } else {
-          // Voltar para a primeira
-          const firstPlant = await tx.plant.findFirst({
-            where: { userId },
+
+          // Criar um registro de manutenção para cada usina
+          await tx.maintenanceRecord.create({
+            data: {
+              plantId: plant.id,
+              userId,
+              startDate: nextDate,
+              endDate: null,
+              notes: "Manutenção agendada automaticamente",
+            },
+          })
+
+          nextDate = addDays(nextDate, 7)
+        }
+      } else {
+        // Definir a próxima usina na sequência para manutenção
+        const currentPlant = await tx.plant.findUnique({
+          where: { id: plantId },
+          select: { maintenanceSequenceOrder: true },
+        })
+
+        if (currentPlant?.maintenanceSequenceOrder !== null) {
+          const nextPlant = await tx.plant.findFirst({
+            where: {
+              userId,
+              maintenanceSequenceOrder: {
+                gt: currentPlant?.maintenanceSequenceOrder,
+              },
+            },
             orderBy: {
               maintenanceSequenceOrder: "asc",
             },
           })
 
-          if (firstPlant) {
+          if (nextPlant) {
+            const nextMaintenanceDate = addDays(new Date(), 7)
+
+            // Atualizar a data da próxima manutenção
             await tx.plant.update({
-              where: { id: firstPlant.id },
+              where: { id: nextPlant.id },
               data: {
-                nextMaintenanceDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                nextMaintenanceDate: nextMaintenanceDate,
               },
             })
+
+            // Criar um registro de manutenção para a próxima usina
+            await tx.maintenanceRecord.create({
+              data: {
+                plantId: nextPlant.id,
+                userId,
+                startDate: nextMaintenanceDate,
+                endDate: null,
+                notes: "Manutenção agendada automaticamente",
+              },
+            })
+          } else {
+            // Se não houver próxima usina, voltar para a primeira
+            const firstPlant = await tx.plant.findFirst({
+              where: { userId },
+              orderBy: {
+                maintenanceSequenceOrder: "asc",
+              },
+            })
+
+            if (firstPlant) {
+              const nextMaintenanceDate = addMonths(new Date(), 1)
+
+              // Atualizar a data da próxima manutenção
+              await tx.plant.update({
+                where: { id: firstPlant.id },
+                data: {
+                  nextMaintenanceDate: nextMaintenanceDate,
+                },
+              })
+
+              // Criar um registro de manutenção para a primeira usina
+              await tx.maintenanceRecord.create({
+                data: {
+                  plantId: firstPlant.id,
+                  userId,
+                  startDate: nextMaintenanceDate,
+                  endDate: null,
+                  notes: "Manutenção agendada automaticamente (ciclo reiniciado)",
+                },
+              })
+            }
           }
         }
       }

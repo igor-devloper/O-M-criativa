@@ -8,6 +8,9 @@ import { ScheduleMaintenanceDialog } from "./components/schedule-maintenance-dia
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table"
 import { Badge } from "@/app/components/ui/badge"
+import Link from "next/link"
+import { Button } from "@/app/components/ui/button"
+import { Eye } from "lucide-react"
 
 export default async function MaintenancePage() {
   const { userId } = await auth()
@@ -26,6 +29,7 @@ export default async function MaintenancePage() {
           id: true,
           name: true,
           address: true,
+          nextMaintenanceDate: true,
         },
       },
     },
@@ -39,13 +43,13 @@ export default async function MaintenancePage() {
     const startDate = new Date(record.startDate)
     const endDate = record.endDate ? new Date(record.endDate) : null
 
-    if (endDate && now > endDate) {
+    if (endDate) {
       return (
         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
           Concluída
         </Badge>
       )
-    } else if (now >= startDate && (!endDate || now <= endDate)) {
+    } else if (now >= startDate) {
       return (
         <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
           Em Andamento
@@ -88,6 +92,7 @@ export default async function MaintenancePage() {
                     <TableHead>Data de Término</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Observações</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -100,6 +105,14 @@ export default async function MaintenancePage() {
                       </TableCell>
                       <TableCell>{getStatusBadge(record)}</TableCell>
                       <TableCell className="max-w-xs truncate">{record.notes || "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <Link href={`/manutencao/${record.id}`}>
+                          <Button variant="outline" size="sm">
+                            <Eye className="h-4 w-4 mr-1" />
+                            Detalhes
+                          </Button>
+                        </Link>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

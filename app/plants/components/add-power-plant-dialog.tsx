@@ -1,11 +1,7 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { PlusIcon } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/app/components/ui/button"
 import {
   Dialog,
@@ -16,139 +12,244 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/app/components/ui/dialog"
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/app/components/ui/form"
 import { Input } from "@/app/components/ui/input"
-import { Label } from "@/app/components/ui/label"
+import { Calendar } from "@/app/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover"
+import { CalendarIcon, Plus } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import { toast } from "@/hooks/use-toast"
+
+// Definição do esquema de validação
+const formSchema = z.object({
+  name: z.string().min(2, { message: "O nome deve ter pelo menos 2 caracteres" }),
+  address: z.string().min(5, { message: "O endereço deve ter pelo menos 5 caracteres" }),
+  latitude: z.string().refine(
+    (val) => {
+      const num = Number.parseFloat(val)
+      return !isNaN(num) && num >= -90 && num <= 90
+    },
+    { message: "Latitude deve ser um número entre -90 e 90" },
+  ),
+  longitude: z.string().refine(
+    (val) => {
+      const num = Number.parseFloat(val)
+      return !isNaN(num) && num >= -180 && num <= 180
+    },
+    { message: "Longitude deve ser um número entre -180 e 180" },
+  ),
+  maintenanceDate: z.date().optional(),
+})
 
 export function AddPowerPlantDialog() {
-  const [open, setOpen] = useState(false)
-  const [name, setName] = useState("")
-  const [address, setAddress] = useState("")
-  const [latitude, setLatitude] = useState("")
-  const [longitude, setLongitude] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const { toast } = useToast()
   const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [isFirstPlant, setIsFirstPlant] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
+  // Inicializar o formulário
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      address: "",
+      latitude: "",
+      longitude: "",
+    },
+  })
 
+  // Verificar se é a primeira usina ao abrir o diálogo
+  const handleOpenChange = async (newOpen: boolean) => {
+    setOpen(newOpen)
+
+    if (newOpen) {
+      try {
+        const response = await fetch("/api/plants")
+        if (response.ok) {
+          const plants = await response.json()
+          setIsFirstPlant(plants.length === 0)
+        }
+      } catch (error) {
+        console.error("Erro ao verificar usinas existentes:", error)
+      }
+    }
+  }
+
+  // Função para lidar com o envio do formulário
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setLoading(true)
     try {
-      // Call the API to create a new power plant
-      const response = await fetch("/api/plants", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          address,
-          latitude: Number.parseFloat(latitude),
-          longitude: Number.parseFloat(longitude),
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to add power plant")
+      const payload = {
+        name: values.name,
+        address: values.address,
+        latitude: Number.parseFloat(values.latitude),
+        longitude: Number.parseFloat(values.longitude),
+        maintenanceDate: values.maintenanceDate,
       }
 
-      const data = await response.json()
-
-      // Close dialog
-      setOpen(false)
-
-      // Show success toast
-      toast({
-        title: "Usina adicionada",
-        description: `A usina ${name} foi adicionada com sucesso.`,
-        variant: "default",
+      const response = await fetch("/api/plants", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       })
 
-      // Reset form
-      setName("")
-      setAddress("")
-      setLatitude("")
-      setLongitude("")
-
-      // Refresh the page to show the new power plant
-      router.refresh()
-    } catch (error) {
+      if (response.ok) {
+        toast({
+          title: "Sucesso",
+          description: "Usina adicionada com sucesso",
+        })
+        setOpen(false)
+        form.reset()
+        router.refresh()
+      } else {
+        const error = await response.json()
+        throw new Error(error.message || "Erro ao adicionar usina")
+      }
+    } catch (error: any) {
       toast({
         title: "Erro",
-        description: "Ocorreu um erro ao adicionar a usina.",
+        description: error.message || "Ocorreu um erro ao adicionar a usina",
         variant: "destructive",
       })
     } finally {
-      setIsSubmitting(false)
+      setLoading(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
-          <PlusIcon className="h-4 w-4" />
+        <Button>
+          <Plus className="mr-2 h-4 w-4" />
           Nova Usina
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Nova Usina</DialogTitle>
-          <DialogDescription>Preencha os dados da nova usina abaixo.</DialogDescription>
+          <DialogTitle>Adicionar Nova Usina</DialogTitle>
+          <DialogDescription>Preencha os dados para adicionar uma nova usina ao sistema.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Nome
-              </Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" required />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="address" className="text-right">
-                Endereço
-              </Label>
-              <Input
-                id="address"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                className="col-span-3"
-                required
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nome da Usina</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Nome da usina" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Endereço</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Endereço completo" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="latitude"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Latitude</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: -23.5505" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="longitude"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Longitude</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: -46.6333" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="latitude" className="text-right">
-                Latitude
-              </Label>
-              <Input
-                id="latitude"
-                value={latitude}
-                onChange={(e) => setLatitude(e.target.value)}
-                className="col-span-3"
-                type="number"
-                step="any"
-                required
+
+            {isFirstPlant && (
+              <FormField
+                control={form.control}
+                name="maintenanceDate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Data da Primeira Manutenção</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
+                          >
+                            {field.value ? (
+                              format(field.value, "PPP", { locale: ptBR })
+                            ) : (
+                              <span>Selecione uma data</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date) => date < new Date()}
+                          locale={ptBR}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormDescription>
+                      Como esta é a primeira usina, defina a data da primeira manutenção.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="longitude" className="text-right">
-                Longitude
-              </Label>
-              <Input
-                id="longitude"
-                value={longitude}
-                onChange={(e) => setLongitude(e.target.value)}
-                className="col-span-3"
-                type="number"
-                step="any"
-                required
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Adicionando..." : "Adicionar"}
-            </Button>
-          </DialogFooter>
-        </form>
+            )}
+
+            <DialogFooter>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Adicionando..." : "Adicionar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

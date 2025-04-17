@@ -10,43 +10,43 @@ export async function GET() {
       return new NextResponse("Unauthorized", { status: 401 })
     }
 
-    const checklist = await prisma.checklistItem.findMany({
+    // Buscar todos os itens de checklist
+    const checklistItems = await prisma.checklistItem.findMany({
       orderBy: {
         id: "asc",
       },
     })
 
-    return NextResponse.json(checklist)
+    // Se não houver itens, criar alguns padrão
+    if (checklistItems.length === 0) {
+      const defaultItems = [
+        { description: "Verificar conexões elétricas" },
+        { description: "Inspecionar painéis solares" },
+        { description: "Limpar superfícies dos painéis" },
+        { description: "Verificar inversores" },
+        { description: "Testar sistema de monitoramento" },
+        { description: "Verificar estruturas de suporte" },
+        { description: "Inspecionar cabeamento" },
+        { description: "Verificar sistema de aterramento" },
+        { description: "Testar desempenho do sistema" },
+        { description: "Documentar leituras de energia" },
+      ]
+
+      // Criar os itens padrão
+      const createdItems = await Promise.all(
+        defaultItems.map((item) =>
+          prisma.checklistItem.create({
+            data: item,
+          }),
+        ),
+      )
+
+      return NextResponse.json(createdItems)
+    }
+
+    return NextResponse.json(checklistItems)
   } catch (error) {
     console.error("[CHECKLIST_GET]", error)
-    return new NextResponse("Internal Error", { status: 500 })
-  }
-}
-
-export async function POST(req: Request) {
-  try {
-    const { userId } = await auth()
-
-    if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 })
-    }
-
-    const body = await req.json()
-    const { description } = body
-
-    if (!description) {
-      return new NextResponse("Missing description", { status: 400 })
-    }
-
-    const checklistItem = await prisma.checklistItem.create({
-      data: {
-        description,
-      },
-    })
-
-    return NextResponse.json({ id: checklistItem.id })
-  } catch (error) {
-    console.error("[CHECKLIST_POST]", error)
     return new NextResponse("Internal Error", { status: 500 })
   }
 }
