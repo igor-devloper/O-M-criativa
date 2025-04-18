@@ -26,7 +26,7 @@ export default async function MaintenancePage({ params }: MaintenancePageProps) 
   }
 
   const maintenance = await prisma.maintenanceRecord.findUnique({
-    where: { id: maintenanceId, userId },
+    where: { id: maintenanceId },
     include: {
       plant: true,
       completedItems: {

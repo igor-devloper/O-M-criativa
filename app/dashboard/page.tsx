@@ -15,14 +15,11 @@ export default async function DashboardPage() {
   }
 
   // Fetch data for dashboard
-  const totalPlants = await prisma.plant.count({
-    where: { userId },
-  })
+  const totalPlants = await prisma.plant.count()
 
   // Buscar a próxima planta com manutenção agendada
   const nextPlantMaintenance = await prisma.plant.findFirst({
     where: {
-      userId,
       nextMaintenanceDate: {
         not: null,
         gt: new Date(),
@@ -36,7 +33,6 @@ export default async function DashboardPage() {
   // Find the next scheduled maintenance (with a future start date)
   const nextMaintenance = await prisma.maintenanceRecord.findFirst({
     where: {
-      userId,
       startDate: {
         gt: new Date(), // Greater than today
       },
@@ -56,7 +52,6 @@ export default async function DashboardPage() {
   // Count completed maintenances (those with an end date in the past)
   const completedMaintenances = await prisma.maintenanceRecord.count({
     where: {
-      userId,
       endDate: {
         lte: new Date(), // Less than or equal to today
         not: null,
@@ -67,7 +62,6 @@ export default async function DashboardPage() {
   // Count pending maintenances (those with a future start date)
   const pendingMaintenances = await prisma.maintenanceRecord.count({
     where: {
-      userId,
       startDate: {
         gt: new Date(), // Greater than today
       },

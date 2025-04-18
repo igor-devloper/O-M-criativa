@@ -20,9 +20,6 @@ export default async function MaintenancePage() {
   }
 
   const maintenanceRecords = await prisma.maintenanceRecord.findMany({
-    where: {
-      userId,
-    },
     include: {
       plant: {
         select: {
