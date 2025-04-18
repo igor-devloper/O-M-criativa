@@ -1,146 +1,117 @@
-import { prisma } from "@/lib/prisma"
-import { auth } from "@clerk/nextjs/server"
-import { NextResponse } from "next/server"
-import { addDays, addMonths } from "date-fns"
+import { prisma } from "@/lib/prisma";
+import { auth } from "@clerk/nextjs/server";
+import { NextRequest, NextResponse } from "next/server";
+import { addDays, addMonths } from "date-fns";
 
-interface RouteParams {
-  params: {
-    id: string
-  }
-}
-
-export async function POST(req: Request, { params }: RouteParams) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { userId } = await auth()
-
+    const { userId } = await auth();
     if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 })
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const maintenanceId = Number.parseInt(params.id)
-
+    // ➤ Desembrulha o Promise para pegar o ID
+    const { id } = await params;
+    const maintenanceId = Number.parseInt(id, 10);
     if (isNaN(maintenanceId)) {
-      return new NextResponse("Invalid maintenance ID", { status: 400 })
+      return new NextResponse("Invalid maintenance ID", { status: 400 });
     }
 
-    // Verificar se a manutenção existe e pertence ao usuário
+    // Verifica se a manutenção existe e pertence ao usuário
     const maintenance = await prisma.maintenanceRecord.findUnique({
-      where: {
-        id: maintenanceId,
-        userId,
-      },
-      include: {
-        plant: true,
-      },
-    })
-
+      where: { id: maintenanceId, userId },
+      include: { plant: true },
+    });
     if (!maintenance) {
-      return new NextResponse("Maintenance not found", { status: 404 })
+      return new NextResponse("Maintenance not found", { status: 404 });
     }
 
-    // Usar uma transação para garantir a integridade dos dados
-    const result = await prisma.$transaction(async (tx) => {
-      // Marcar a manutenção como concluída
+    // Transação para concluir e agendar próxima manutenção
+    const updated = await prisma.$transaction(async (tx) => {
+      // 1) Atualiza o registro atual
       const updatedMaintenance = await tx.maintenanceRecord.update({
         where: { id: maintenanceId },
         data: {
           endDate: new Date(),
           isCompleted: true,
         },
-      })
+      });
 
-      // Atualizar a data da última manutenção da usina
+      // 2) Atualiza datas na usina atual
       await tx.plant.update({
         where: { id: maintenance.plantId },
         data: {
           lastMaintenanceDate: new Date(),
           nextMaintenanceDate: null,
         },
-      })
+      });
 
-      // Verificar se esta é a última usina na sequência
-      const currentPlant = await tx.plant.findUnique({
+      // 3) Busca ordem da usina atual
+      const curr = await tx.plant.findUnique({
         where: { id: maintenance.plantId },
-        select: { maintenanceSequenceOrder: true },
-      })
+        select: { maintenanceSequenceOrder: true, userId: true },
+      });
 
-      if (currentPlant?.maintenanceSequenceOrder !== null) {
-        // Verificar se há uma próxima usina na sequência
+      if (curr?.maintenanceSequenceOrder != null) {
+        // 4) Próxima usina na sequência
         const nextPlant = await tx.plant.findFirst({
           where: {
-            userId,
-            maintenanceSequenceOrder: {
-              gt: currentPlant?.maintenanceSequenceOrder,
-            },
+            userId: curr.userId,
+            maintenanceSequenceOrder: { gt: curr.maintenanceSequenceOrder },
           },
-          orderBy: {
-            maintenanceSequenceOrder: "asc",
-          },
-        })
+          orderBy: { maintenanceSequenceOrder: "asc" },
+        });
 
         if (nextPlant) {
-          // Se houver próxima usina, agendar sua manutenção para uma semana depois
-          const nextMaintenanceDate = addDays(new Date(), 7)
-
-          // Atualizar a data da próxima manutenção da usina
+          // Agendar 7 dias depois
+          const nextDate = addDays(new Date(), 7);
           await tx.plant.update({
             where: { id: nextPlant.id },
-            data: {
-              nextMaintenanceDate: nextMaintenanceDate,
-            },
-          })
-
-          // Criar um novo registro de manutenção para a próxima usina
+            data: { nextMaintenanceDate: nextDate },
+          });
           await tx.maintenanceRecord.create({
             data: {
               plantId: nextPlant.id,
               userId,
-              startDate: nextMaintenanceDate,
+              startDate: nextDate,
               endDate: null,
               notes: "Manutenção agendada automaticamente",
             },
-          })
+          });
         } else {
-          // Se não houver próxima usina (esta é a última), voltar para a primeira
-          // e agendar sua manutenção para um mês depois
+          // Reinicia ciclo na primeira usina — 1 mês depois
           const firstPlant = await tx.plant.findFirst({
-            where: { userId },
-            orderBy: {
-              maintenanceSequenceOrder: "asc",
-            },
-          })
-
+            where: { userId: curr.userId },
+            orderBy: { maintenanceSequenceOrder: "asc" },
+          });
           if (firstPlant) {
-            const nextMaintenanceDate = addMonths(new Date(), 1)
-
-            // Atualizar a data da próxima manutenção da primeira usina
+            const nextDate = addMonths(new Date(), 1);
             await tx.plant.update({
               where: { id: firstPlant.id },
-              data: {
-                nextMaintenanceDate: nextMaintenanceDate,
-              },
-            })
-
-            // Criar um novo registro de manutenção para a primeira usina
+              data: { nextMaintenanceDate: nextDate },
+            });
             await tx.maintenanceRecord.create({
               data: {
                 plantId: firstPlant.id,
                 userId,
-                startDate: nextMaintenanceDate,
+                startDate: nextDate,
                 endDate: null,
                 notes: "Manutenção agendada automaticamente (ciclo reiniciado)",
               },
-            })
+            });
           }
         }
       }
 
-      return updatedMaintenance
-    })
+      return updatedMaintenance;
+    });
 
-    return NextResponse.json({ id: result.id })
+    return NextResponse.json({ id: updated.id });
   } catch (error) {
-    console.error("[MAINTENANCE_COMPLETE]", error)
-    return new NextResponse("Internal Error", { status: 500 })
+    console.error("[MAINTENANCE_COMPLETE]", error);
+    return new NextResponse("Internal Error", { status: 500 });
   }
 }
