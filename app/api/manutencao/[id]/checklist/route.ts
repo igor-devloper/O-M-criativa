@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, context: { params: { id: string } }) {
   try {
     const { userId } = await auth()
 
@@ -10,7 +10,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return new NextResponse("Unauthorized", { status: 401 })
     }
 
-    const maintenanceId = Number.parseInt(params.id)
+    const maintenanceId = Number.parseInt(context.params.id)
 
     if (isNaN(maintenanceId)) {
       return new NextResponse("Invalid maintenance ID", { status: 400 })
