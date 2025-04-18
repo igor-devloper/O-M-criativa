@@ -1,13 +1,22 @@
 import { prisma } from "@/lib/prisma"
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const body = await req.json()
   const { startDate } = body
+  const { id } = await params;
+
+  const maintenanceId = Number.parseInt(id, 10);
+  if (isNaN(maintenanceId)) {
+    return new NextResponse("Invalid maintenance ID", { status: 400 });
+  }
 
   try {
     await prisma.maintenanceRecord.update({
-      where: { id: Number(params.id) },
+      where: { id: maintenanceId },
       data: { startDate: new Date(startDate) },
     })
 

@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth();
@@ -14,8 +14,9 @@ export async function POST(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
+    
     // Obter o ID diretamente do params
-    const { id } = params;
+    const { id } = await params;
     const maintenanceId = Number.parseInt(id, 10);
     if (isNaN(maintenanceId)) {
       return new NextResponse("Invalid maintenance ID", { status: 400 });
