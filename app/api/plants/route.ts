@@ -109,7 +109,6 @@ export async function POST(req: Request) {
       if (!isFirstPlant) {
         const otherPlants = await tx.plant.findMany({
           where: {
-            userId,
             id: { not: plant.id },
           },
           orderBy: {

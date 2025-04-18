@@ -1,22 +1,36 @@
-import { Header } from "@/app/components/header"
-import { auth } from "@clerk/nextjs/server"
-import { redirect } from "next/navigation"
-import { prisma } from "@/lib/prisma"
-import { format } from "date-fns"
-import { ptBR } from "date-fns/locale"
-import { ScheduleMaintenanceDialog } from "./components/schedule-maintenance-dialog"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table"
-import { Badge } from "@/app/components/ui/badge"
-import Link from "next/link"
-import { Button } from "@/app/components/ui/button"
-import { Eye } from "lucide-react"
+import { Header } from "@/app/components/header";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { ScheduleMaintenanceDialog } from "./components/schedule-maintenance-dialog";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/app/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/app/components/ui/table";
+import { Badge } from "@/app/components/ui/badge";
+import Link from "next/link";
+import { Button } from "@/app/components/ui/button";
+import { Eye } from "lucide-react";
+import { EditStartDateDialog } from "./components/edit-start-date-dialog";
 
 export default async function MaintenancePage() {
-  const { userId } = await auth()
+  const { userId } = await auth();
 
   if (!userId) {
-    redirect("/login")
+    redirect("/login");
   }
 
   const maintenanceRecords = await prisma.maintenanceRecord.findMany({
@@ -33,33 +47,42 @@ export default async function MaintenancePage() {
     orderBy: {
       startDate: "asc",
     },
-  })
+  });
 
   const getStatusBadge = (record: any) => {
-    const now = new Date()
-    const startDate = new Date(record.startDate)
-    const endDate = record.endDate ? new Date(record.endDate) : null
+    const now = new Date();
+    const startDate = new Date(record.startDate);
+    const endDate = record.endDate ? new Date(record.endDate) : null;
 
     if (endDate) {
       return (
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+        <Badge
+          variant="outline"
+          className="bg-green-50 text-green-700 border-green-200"
+        >
           Concluída
         </Badge>
-      )
+      );
     } else if (now >= startDate) {
       return (
-        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+        <Badge
+          variant="outline"
+          className="bg-yellow-50 text-yellow-700 border-yellow-200"
+        >
           Em Andamento
         </Badge>
-      )
+      );
     } else {
       return (
-        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+        <Badge
+          variant="outline"
+          className="bg-blue-50 text-blue-700 border-blue-200"
+        >
           Agendada
         </Badge>
-      )
+      );
     }
-  }
+  };
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -73,12 +96,15 @@ export default async function MaintenancePage() {
         <Card>
           <CardHeader>
             <CardTitle>Agenda de Manutenções</CardTitle>
-            <CardDescription>Visualize e gerencie todas as manutenções agendadas.</CardDescription>
+            <CardDescription>
+              Visualize e gerencie todas as manutenções agendadas.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {maintenanceRecords.length === 0 ? (
               <div className="text-center py-6 text-muted-foreground">
-                Nenhuma manutenção agendada. Use o botão acima para agendar uma nova manutenção.
+                Nenhuma manutenção agendada. Use o botão acima para agendar uma
+                nova manutenção.
               </div>
             ) : (
               <Table>
@@ -95,13 +121,29 @@ export default async function MaintenancePage() {
                 <TableBody>
                   {maintenanceRecords.map((record) => (
                     <TableRow key={record.id}>
-                      <TableCell className="font-medium">{record.plant.name}</TableCell>
-                      <TableCell>{format(new Date(record.startDate), "PPP", { locale: ptBR })}</TableCell>
+                      <TableCell className="font-medium">
+                        {record.plant.name}
+                      </TableCell>
+                      <TableCell className="flex items-center">
+                        {format(new Date(record.startDate), "PPP", {
+                          locale: ptBR,
+                        })}
+                        <EditStartDateDialog
+                          recordId={record.id}
+                          currentDate={new Date(record.startDate)}
+                        />
+                      </TableCell>
                       <TableCell>
-                        {record.endDate ? format(new Date(record.endDate), "PPP", { locale: ptBR }) : "—"}
+                        {record.endDate
+                          ? format(new Date(record.endDate), "PPP", {
+                              locale: ptBR,
+                            })
+                          : "—"}
                       </TableCell>
                       <TableCell>{getStatusBadge(record)}</TableCell>
-                      <TableCell className="max-w-xs truncate">{record.notes || "—"}</TableCell>
+                      <TableCell className="max-w-xs truncate">
+                        {record.notes || "—"}
+                      </TableCell>
                       <TableCell className="text-right">
                         <Link href={`/manutencao/${record.id}`}>
                           <Button variant="outline" size="sm">
@@ -119,5 +161,5 @@ export default async function MaintenancePage() {
         </Card>
       </main>
     </div>
-  )
+  );
 }
