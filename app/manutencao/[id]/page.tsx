@@ -9,29 +9,24 @@ import { ChecklistSection } from "./components/checklist-section"
 import { RouteMap } from "./components/route-map"
 
 interface MaintenancePageProps {
-  params: {
-    id: string
-  }
+  params: Promise<{ id: string }>;
 }
 
 export default async function MaintenancePage({ params }: MaintenancePageProps) {
+  const { id } = await params
   const { userId } = await auth()
 
   if (!userId) {
     redirect("/login")
   }
 
-  const maintenanceId = Number.parseInt(params.id)
-
+  const maintenanceId = Number.parseInt(id, 10)
   if (isNaN(maintenanceId)) {
     notFound()
   }
 
   const maintenance = await prisma.maintenanceRecord.findUnique({
-    where: {
-      id: maintenanceId,
-      userId,
-    },
+    where: { id: maintenanceId, userId },
     include: {
       plant: true,
       completedItems: {
@@ -46,10 +41,10 @@ export default async function MaintenancePage({ params }: MaintenancePageProps) 
     notFound()
   }
 
-  // Buscar todos os itens de checklist para garantir que temos a lista completa
+  // Buscar todos os itens de checklist para garantir lista completa
   const allChecklistItems = await prisma.checklistItem.findMany()
 
-  // Se não houver itens de checklist, criar alguns padrão
+  // Se não houver itens, criar padrões
   if (allChecklistItems.length === 0) {
     const defaultItems = [
       { description: "Verificar conexões elétricas" },
@@ -64,30 +59,21 @@ export default async function MaintenancePage({ params }: MaintenancePageProps) 
       { description: "Documentar leituras de energia" },
     ]
 
-    // Criar os itens padrão
     await Promise.all(
-      defaultItems.map((item) =>
-        prisma.checklistItem.create({
-          data: item,
-        }),
-      ),
+      defaultItems.map(item =>
+        prisma.checklistItem.create({ data: item })
+      )
     )
 
-    // Buscar novamente após criar
     const newChecklistItems = await prisma.checklistItem.findMany()
+    const checklistItems = newChecklistItems.map(item => ({
+      id: item.id,
+      description: item.description,
+      completed: false,
+      notes: "",
+      completedAt: null,
+    }))
 
-    // Mapear os itens completados para o formato esperado pelo componente
-    const checklistItems = newChecklistItems.map((item) => {
-      return {
-        id: item.id,
-        description: item.description,
-        completed: false,
-        notes: "",
-        completedAt: null,
-      }
-    })
-
-    // Converter os valores de Decimal para number ao passar para o componente RouteMap
     return (
       <div className="flex min-h-screen flex-col">
         <Header />
@@ -124,10 +110,11 @@ export default async function MaintenancePage({ params }: MaintenancePageProps) 
     )
   }
 
-  // Mapear os itens completados para o formato esperado pelo componente
-  const checklistItems = allChecklistItems.map((item) => {
-    const completedItem = maintenance.completedItems.find((ci) => ci.checklistItemId === item.id)
-
+  // Itens de checklist existentes
+  const checklistItems = allChecklistItems.map(item => {
+    const completedItem = maintenance.completedItems.find(
+      ci => ci.checklistItemId === item.id
+    )
     return {
       id: item.id,
       description: item.description,
@@ -137,7 +124,6 @@ export default async function MaintenancePage({ params }: MaintenancePageProps) 
     }
   })
 
-  // Converter os valores de Decimal para number ao passar para o componente RouteMap
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
