@@ -2,13 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
 
-interface RouteParams {
-  params: {
-    id: string
-  }
-}
-
-export async function POST(req: Request, { params }: RouteParams) {
+export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
     const { userId } = await auth()
 
@@ -22,7 +16,6 @@ export async function POST(req: Request, { params }: RouteParams) {
       return new NextResponse("Invalid maintenance ID", { status: 400 })
     }
 
-    // Verificar se a manutenção existe e pertence ao usuário
     const maintenance = await prisma.maintenanceRecord.findUnique({
       where: {
         id: maintenanceId,
@@ -34,7 +27,6 @@ export async function POST(req: Request, { params }: RouteParams) {
       return new NextResponse("Maintenance not found", { status: 404 })
     }
 
-    // Obter os itens do checklist do corpo da requisição
     const body = await req.json()
     const { items } = body
 
@@ -42,10 +34,8 @@ export async function POST(req: Request, { params }: RouteParams) {
       return new NextResponse("Invalid checklist items", { status: 400 })
     }
 
-    // Atualizar os itens do checklist
     const results = await Promise.all(
       items.map(async (item) => {
-        // Verificar se o item já existe
         const existingItem = await prisma.completedChecklistItem.findFirst({
           where: {
             maintenanceId,
@@ -54,7 +44,6 @@ export async function POST(req: Request, { params }: RouteParams) {
         })
 
         if (existingItem) {
-          // Atualizar o item existente
           return prisma.completedChecklistItem.update({
             where: { id: existingItem.id },
             data: {
@@ -64,7 +53,6 @@ export async function POST(req: Request, { params }: RouteParams) {
             },
           })
         } else {
-          // Criar um novo item
           return prisma.completedChecklistItem.create({
             data: {
               maintenanceId,
@@ -75,7 +63,7 @@ export async function POST(req: Request, { params }: RouteParams) {
             },
           })
         }
-      }),
+      })
     )
 
     return NextResponse.json({ success: true, count: results.length })
