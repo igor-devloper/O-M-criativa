@@ -1,28 +1,31 @@
-import { Header } from "@/app/components/header"
-import { auth } from "@clerk/nextjs/server"
-import { redirect, notFound } from "next/navigation"
-import { prisma } from "@/lib/prisma"
-import { format } from "date-fns"
-import { ptBR } from "date-fns/locale"
-import { MaintenanceDetails } from "./components/maintenance-details"
-import { ChecklistSection } from "./components/checklist-section"
-import { RouteMap } from "./components/route-map"
+import { Header } from "@/app/components/header";
+import { auth } from "@clerk/nextjs/server";
+import { redirect, notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { MaintenanceDetails } from "./components/maintenance-details";
+import { ChecklistSection } from "./components/checklist-section";
+import { RouteMap } from "./components/route-map";
+import { ScrollArea } from "@/app/components/ui/scroll-area";
 
 interface MaintenancePageProps {
   params: Promise<{ id: string }>;
 }
 
-export default async function MaintenancePage({ params }: MaintenancePageProps) {
-  const { id } = await params
-  const { userId } = await auth()
+export default async function MaintenancePage({
+  params,
+}: MaintenancePageProps) {
+  const { id } = await params;
+  const { userId } = await auth();
 
   if (!userId) {
-    redirect("/login")
+    redirect("/login");
   }
 
-  const maintenanceId = Number.parseInt(id, 10)
+  const maintenanceId = Number.parseInt(id, 10);
   if (isNaN(maintenanceId)) {
-    notFound()
+    notFound();
   }
 
   const maintenance = await prisma.maintenanceRecord.findUnique({
@@ -35,14 +38,14 @@ export default async function MaintenancePage({ params }: MaintenancePageProps) 
         },
       },
     },
-  })
+  });
 
   if (!maintenance) {
-    notFound()
+    notFound();
   }
 
   // Buscar todos os itens de checklist para garantir lista completa
-  const allChecklistItems = await prisma.checklistItem.findMany()
+  const allChecklistItems = await prisma.checklistItem.findMany();
 
   // Se não houver itens, criar padrões
   if (allChecklistItems.length === 0) {
@@ -57,22 +60,20 @@ export default async function MaintenancePage({ params }: MaintenancePageProps) 
       { description: "Verificar sistema de aterramento" },
       { description: "Testar desempenho do sistema" },
       { description: "Documentar leituras de energia" },
-    ]
+    ];
 
     await Promise.all(
-      defaultItems.map(item =>
-        prisma.checklistItem.create({ data: item })
-      )
-    )
+      defaultItems.map((item) => prisma.checklistItem.create({ data: item }))
+    );
 
-    const newChecklistItems = await prisma.checklistItem.findMany()
-    const checklistItems = newChecklistItems.map(item => ({
+    const newChecklistItems = await prisma.checklistItem.findMany();
+    const checklistItems = newChecklistItems.map((item) => ({
       id: item.id,
       description: item.description,
       completed: false,
       notes: "",
       completedAt: null,
-    }))
+    }));
 
     return (
       <div className="flex min-h-screen flex-col">
@@ -81,7 +82,8 @@ export default async function MaintenancePage({ params }: MaintenancePageProps) 
           <div className="mb-6">
             <h1 className="text-2xl font-bold">Detalhes da Manutenção</h1>
             <p className="text-muted-foreground">
-              {maintenance.plant.name} - {format(new Date(maintenance.startDate), "PPP", { locale: ptBR })}
+              {maintenance.plant.name} -{" "}
+              {format(new Date(maintenance.startDate), "PPP", { locale: ptBR })}
             </p>
           </div>
 
@@ -107,22 +109,22 @@ export default async function MaintenancePage({ params }: MaintenancePageProps) 
           </div>
         </main>
       </div>
-    )
+    );
   }
 
   // Itens de checklist existentes
-  const checklistItems = allChecklistItems.map(item => {
+  const checklistItems = allChecklistItems.map((item) => {
     const completedItem = maintenance.completedItems.find(
-      ci => ci.checklistItemId === item.id
-    )
+      (ci) => ci.checklistItemId === item.id
+    );
     return {
       id: item.id,
       description: item.description,
       completed: completedItem?.completed || false,
       notes: completedItem?.notes || "",
       completedAt: completedItem?.completedAt || null,
-    }
-  })
+    };
+  });
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -131,7 +133,8 @@ export default async function MaintenancePage({ params }: MaintenancePageProps) 
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Detalhes da Manutenção</h1>
           <p className="text-muted-foreground">
-            {maintenance.plant.name} - {format(new Date(maintenance.startDate), "PPP", { locale: ptBR })}
+            {maintenance.plant.name} -{" "}
+            {format(new Date(maintenance.startDate), "PPP", { locale: ptBR })}
           </p>
         </div>
 
@@ -157,5 +160,5 @@ export default async function MaintenancePage({ params }: MaintenancePageProps) 
         </div>
       </main>
     </div>
-  )
+  );
 }

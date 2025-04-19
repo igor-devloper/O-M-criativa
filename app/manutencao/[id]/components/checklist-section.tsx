@@ -15,7 +15,7 @@ import { Button } from "@/app/components/ui/button";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "@/hooks/use-toast";
-import { ScrollArea, ScrollBar } from "@/app/components/ui/scroll-area";
+import { ScrollArea } from "@/app/components/ui/scroll-area";
 
 // Atualizar a interface ChecklistItem para aceitar undefined no completedAt
 interface ChecklistItem {
@@ -103,16 +103,16 @@ export function ChecklistSection({
   };
 
   return (
-    <ScrollArea className="max-h-[300px] overflow-hidden">
-      <Card >
-        <CardHeader>
-          <CardTitle>Checklist de Manutenção</CardTitle>
-          <CardDescription>
-            Itens a serem verificados durante a manutenção
-          </CardDescription>
-        </CardHeader>
+    <Card className="h-[500px] flex flex-col">
+      <CardHeader>
+        <CardTitle>Checklist de Manutenção</CardTitle>
+        <CardDescription>
+          Itens a serem verificados durante a manutenção
+        </CardDescription>
+      </CardHeader>
+      <ScrollArea className="flex-1 overflow-auto">
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-4 pb-4">
             {items.map((item) => (
               <div key={item.id} className="space-y-2">
                 <div className="flex items-start space-x-2">
@@ -166,8 +166,7 @@ export function ChecklistSection({
             )}
           </div>
         </CardContent>
-      </Card>
-      <ScrollBar orientation="vertical"/>
-    </ScrollArea>
+      </ScrollArea>
+    </Card>
   );
 }

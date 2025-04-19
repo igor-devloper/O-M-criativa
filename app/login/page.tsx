@@ -26,7 +26,7 @@ const LoginPage = async () => {
           <div className="space-y-1.5">
             <div className="inline-block p-3 bg-white rounded-md">
               <Image
-                src="/logo.png"
+                src="/logo.svg"
                 width={100}
                 height={55}
                 alt="Criativa Energia"
