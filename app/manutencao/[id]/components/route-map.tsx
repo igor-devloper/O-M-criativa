@@ -1,47 +1,52 @@
-"use client"
+"use client";
 
 import {
   GoogleMap,
   DirectionsRenderer,
   useJsApiLoader,
-} from "@react-google-maps/api"
-import { useEffect, useState } from "react"
+} from "@react-google-maps/api";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/app/components/ui/card"
-import { Skeleton } from "@/app/components/ui/skeleton"
-import { Clock, MapPin, Navigation } from "lucide-react"
+} from "@/app/components/ui/card";
+import { Skeleton } from "@/app/components/ui/skeleton";
+import { Clock, MapPin, MapPinned, Navigation } from "lucide-react";
+import Image from "next/image";
 
 interface RouteMapProps {
   plant: {
-    id: number
-    name: string
-    address: string
-    latitude: number | any
-    longitude: number | any
-  }
+    id: number;
+    name: string;
+    address: string;
+    latitude: number | any;
+    longitude: number | any;
+  };
   maintenance: {
-    id: number
-    route?: string | null
-    arrivalTime?: Date | null
-  }
+    id: number;
+    route?: string | null;
+    arrivalTime?: Date | null;
+  };
 }
 
 export function RouteMap({ plant, maintenance }: RouteMapProps) {
-  const [currentPosition, setCurrentPosition] = useState<google.maps.LatLngLiteral | null>(null)
-  const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null)
-  const [distance, setDistance] = useState<string | null>(null)
-  const [duration, setDuration] = useState<string | null>(null)
-  const [arrivalTime, setArrivalTime] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [currentPosition, setCurrentPosition] =
+    useState<google.maps.LatLngLiteral | null>(null);
+  const [directions, setDirections] =
+    useState<google.maps.DirectionsResult | null>(null);
+  const [distance, setDistance] = useState<string | null>(null);
+  const [duration, setDuration] = useState<string | null>(null);
+  const [arrivalTime, setArrivalTime] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-  })
+    language: "pt", // Português
+    region: "BR",
+  });
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -50,31 +55,37 @@ export function RouteMap({ plant, maintenance }: RouteMapProps) {
           setCurrentPosition({
             lat: position.coords.latitude,
             lng: position.coords.longitude,
-          })
+          });
         },
         (err) => {
-          console.error("Erro ao obter localização:", err)
-          setError("Não foi possível obter sua localização.")
-        },
-      )
+          console.error("Erro ao obter localização:", err);
+          setError("Não foi possível obter sua localização.");
+        }
+      );
     } else {
-      setError("Geolocalização não é suportada.")
+      setError("Geolocalização não é suportada.");
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
     if (isLoaded && currentPosition) {
-      calculateRoute()
+      calculateRoute();
     }
-  }, [isLoaded, currentPosition])
+  }, [isLoaded, currentPosition]);
 
   const calculateRoute = async () => {
-    const directionsService = new google.maps.DirectionsService()
+    const directionsService = new google.maps.DirectionsService();
 
     const destination = {
-      lat: typeof plant.latitude === "number" ? plant.latitude : Number(plant.latitude),
-      lng: typeof plant.longitude === "number" ? plant.longitude : Number(plant.longitude),
-    }
+      lat:
+        typeof plant.latitude === "number"
+          ? plant.latitude
+          : Number(plant.latitude),
+      lng:
+        typeof plant.longitude === "number"
+          ? plant.longitude
+          : Number(plant.longitude),
+    };
 
     directionsService.route(
       {
@@ -84,26 +95,32 @@ export function RouteMap({ plant, maintenance }: RouteMapProps) {
       },
       async (result, status) => {
         if (status === google.maps.DirectionsStatus.OK && result) {
-          setDirections(result)
+          setDirections(result);
 
-          const leg = result.routes[0].legs[0]
-          setDistance(leg.distance?.text ?? null)
-          setDuration(leg.duration?.text ?? null)
+          const leg = result.routes[0].legs[0];
+          setDistance(leg.distance?.text ?? null);
+          setDuration(leg.duration?.text ?? null);
 
-          const now = new Date()
-          const arrival = new Date(now.getTime() + (leg.duration?.value ?? 0) * 1000)
-          setArrivalTime(arrival.toLocaleTimeString())
+          const now = new Date();
+          const arrival = new Date(
+            now.getTime() + (leg.duration?.value ?? 0) * 1000
+          );
+          setArrivalTime(arrival.toLocaleTimeString());
 
           // Salvar no backend
-          await saveRouteInfo(leg.distance?.text, leg.duration?.text, arrival)
+          await saveRouteInfo(leg.distance?.text, leg.duration?.text, arrival);
         } else {
-          setError("Erro ao calcular a rota.")
+          setError("Erro ao calcular a rota.");
         }
-      },
-    )
-  }
+      }
+    );
+  };
 
-  const saveRouteInfo = async (distance: string | undefined, duration: string | undefined, arrivalTime: Date) => {
+  const saveRouteInfo = async (
+    distance: string | undefined,
+    duration: string | undefined,
+    arrivalTime: Date
+  ) => {
     try {
       await fetch(`/api/manutencao/${maintenance.id}/route`, {
         method: "POST",
@@ -114,11 +131,11 @@ export function RouteMap({ plant, maintenance }: RouteMapProps) {
           route: `${distance}, ${duration}`,
           arrivalTime: arrivalTime.toISOString(),
         }),
-      })
+      });
     } catch (err) {
-      console.error("Erro ao salvar rota:", err)
+      console.error("Erro ao salvar rota:", err);
     }
-  }
+  };
 
   return (
     <Card>
@@ -169,10 +186,27 @@ export function RouteMap({ plant, maintenance }: RouteMapProps) {
                   <p className="text-sm text-muted-foreground">{arrivalTime}</p>
                 </div>
               </div>
+              {currentPosition && (
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&origin=${currentPosition.lat},${currentPosition.lng}&destination=${plant.latitude},${plant.longitude}&travelmode=driving`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 underline cursor-pointer "
+                  >
+                    <img
+                      src="/google-maps.svg"
+                      alt="Google Maps"
+                      className="h-6 w-6 object-contain"
+                    />
+                    <p className="text-sm font-medium">Abrir no Google Maps</p>
+                  </a>
+                </div>
+              )}
             </div>
           </>
         )}
       </CardContent>
     </Card>
-  )
+  );
 }

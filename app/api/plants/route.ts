@@ -11,10 +11,8 @@ export async function GET() {
       return new NextResponse("Unauthorized", { status: 401 })
     }
 
+    // Removida a verificação de userId no where
     const plants = await prisma.plant.findMany({
-      where: {
-        userId,
-      },
       orderBy: [{ maintenanceSequenceOrder: { sort: "asc", nulls: "last" } }, { name: "asc" }],
     })
 
@@ -56,9 +54,8 @@ export async function POST(req: Request) {
       })
     }
 
-    // Obter a maior ordem de sequência
+    // Obter a maior ordem de sequência (sem filtro de userId)
     const maxOrder = await prisma.plant.aggregate({
-      where: { userId },
       _max: { maintenanceSequenceOrder: true },
     })
 

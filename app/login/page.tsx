@@ -6,8 +6,9 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
 export const metadata = {
-  title: "Login - Painel Criativa",
-  description: "Faça login para acessar o Painel Criativa.",
+  title: "Login - Plataforma de Manutenção Criativa",
+  description:
+    "Faça login para acessar a Plataforma de Manutenção Criativa Energia.",
 };
 
 const LoginPage = async () => {
@@ -20,10 +21,10 @@ const LoginPage = async () => {
     <div className="flex h-full flex-col md:grid md:grid-cols-2">
       {/* Left Side */}
       <div className="relative flex h-full flex-col justify-center px-8 lg:px-16">
-        <div className="absolute inset-0 bg-gradient-to-b from-gray-50/80 via-gray-50 to-gray-50 md:hidden" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background to-background md:hidden" />
         <div className="relative z-10 mx-auto w-full max-w-[500px] space-y-6">
           <div className="space-y-1.5">
-            <div className="inline-block p-4">
+            <div className="inline-block p-3 bg-white rounded-md">
               <Image
                 src="/logo.png"
                 width={100}
@@ -33,23 +34,21 @@ const LoginPage = async () => {
                 priority
               />
             </div>
-            <h1 className="text-2xl font-medium tracking-tight text-gray-800 md:text-3xl">
-              Bem-vindo ao{" "}
-              <span className="bg-gradient-to-r from-green-500 to-green-600 bg-clip-text font-semibold text-transparent">
-                Painel Criativa
+            <h1 className="text-2xl font-medium tracking-tight text-foreground md:text-3xl text-nowrap">
+              Bem-vindo à{" "}
+              <span className="bg-gradient-to-r from-yellow-300 via-yellow-500 to-orange-500 bg-clip-text font-bold text-transparent">
+                Plataforma de Manutenção
               </span>
             </h1>
-            <p className="text-sm leading-relaxed text-gray-600 md:text-base">
-              O Painel Criativa é a plataforma de prestação de contas
-              operacionais da manutenção das usinas. Acompanhe serviços,
-              relatórios e o desempenho com transparência.
+            <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
+              Gerencie a manutenção das usinas solares com
+              eficiência. Acompanhe cronogramas de manutenção
+              preventiva e indicadores de desempenho em tempo real para garantir
+              a máxima produtividade dos seus ativos.
             </p>
           </div>
           <SignInButton>
-            <Button
-              variant="default"
-              className="h-10 gap-2 bg-green-500 text-sm text-white hover:bg-green-600"
-            >
+            <Button variant="default" className="h-10 gap-2 text-sm">
               <LogInIcon className="h-4 w-4" />
               Fazer login ou criar conta
             </Button>
@@ -58,8 +57,8 @@ const LoginPage = async () => {
       </div>
 
       {/* Right Side */}
-      <div className="relative hidden h-full md:block">
-        <div className="absolute inset-0 z-10 bg-gradient-to-r from-gray-50 to-transparent" />
+      <div className="relative hidden h-screen md:block">
+        <div className="absolute inset-0 z-10 bg-gradient-to-r from-background to-transparent" />
         <Image
           src="/fotoBack.jpg"
           alt="Usina solar da Criativa Energia"
@@ -68,7 +67,7 @@ const LoginPage = async () => {
           priority
           quality={100}
         />
-        <div className="absolute inset-0 bg-white/30" />
+        <div className="absolute inset-0 bg-foreground/5 dark:bg-foreground/10" />
       </div>
     </div>
   );
