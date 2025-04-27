@@ -113,12 +113,10 @@ export function ScheduleMaintenanceDialog() {
       }
 
       // Enviar para a API
-      const response = await fetch("/api/manutencao", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+      const response = await fetch(`/api/manutencao/${values.plantId}/start-date`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ startDate: values.startDate }),
       })
 
       if (response.ok) {

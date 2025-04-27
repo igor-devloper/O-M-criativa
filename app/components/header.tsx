@@ -8,10 +8,12 @@ export function Header() {
     <header className="border-b">
       <div className="container flex h-20 items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2 font-semibold w-auto h-auto bg-white mx-5 p-2 rounded">
-          <img
+          <Image
             src="/logo.svg"
             alt="Google Maps"
             className="w-36 h-full object-contain"
+            width={100}
+            height={100}
           />
         </Link>
         <div className="flex items-center gap-4">

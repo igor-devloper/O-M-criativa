@@ -90,7 +90,7 @@ export default async function MaintenancePage() {
       <main className="flex-1 p-4 md:p-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Manutenções</h1>
-          <ScheduleMaintenanceDialog />
+          {/* <ScheduleMaintenanceDialog /> */}
         </div>
 
         <Card>

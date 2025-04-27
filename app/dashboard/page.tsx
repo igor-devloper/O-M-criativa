@@ -88,14 +88,7 @@ export default async function DashboardPage() {
               <CardDescription>Usina com manutenção programada</CardDescription>
             </CardHeader>
             <CardContent>
-              {nextPlantMaintenance ? (
-                <>
-                  <p className="text-xl font-bold">{nextPlantMaintenance.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {format(new Date(nextPlantMaintenance.nextMaintenanceDate!), "dd/MM/yyyy", { locale: ptBR })}
-                  </p>
-                </>
-              ) : nextMaintenance ? (
+              {nextMaintenance ? (
                 <>
                   <p className="text-xl font-bold">{nextMaintenance.plant.name}</p>
                   <p className="text-sm text-muted-foreground">

@@ -1,8 +1,15 @@
 import { Button } from "@/app/components/ui/button"
 import { Header } from "@/app/components/header"
 import Link from "next/link"
+import { auth } from "@clerk/nextjs/server"
+import { redirect } from "next/navigation"
 
-export default function Home() {
+export default async function Home() {
+    const { userId } = await auth()
+  
+    if (!userId) {
+      redirect("/login")
+    }
   return (
     <div className="flex min-h-screen flex-col">
       <Header />

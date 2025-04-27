@@ -27,11 +27,10 @@ const LoginPage = async () => {
             <div className="inline-block p-3 bg-white rounded-md">
               <Image
                 src="/logo.svg"
+                alt="Google Maps"
+                className="w-36 h-full object-contain"
                 width={100}
-                height={55}
-                alt="Criativa Energia"
-                className="h-auto w-auto"
-                priority
+                height={100}
               />
             </div>
             <h1 className="text-2xl font-medium tracking-tight text-foreground md:text-3xl text-nowrap">
@@ -41,10 +40,10 @@ const LoginPage = async () => {
               </span>
             </h1>
             <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
-              Gerencie a manutenção das usinas solares com
-              eficiência. Acompanhe cronogramas de manutenção
-              preventiva e indicadores de desempenho em tempo real para garantir
-              a máxima produtividade dos seus ativos.
+              Gerencie a manutenção das usinas solares com eficiência. Acompanhe
+              cronogramas de manutenção preventiva e indicadores de desempenho
+              em tempo real para garantir a máxima produtividade dos seus
+              ativos.
             </p>
           </div>
           <SignInButton>
