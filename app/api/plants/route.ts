@@ -11,9 +11,11 @@ export async function GET() {
       return new NextResponse("Unauthorized", { status: 401 })
     }
 
-    // Removida a verificação de userId no where
     const plants = await prisma.plant.findMany({
-      orderBy: [{ maintenanceSequenceOrder: { sort: "asc", nulls: "last" } }, { name: "asc" }],
+      orderBy: [
+        { maintenanceSequenceOrder: { sort: "asc", nulls: "last" } },
+        { name: "asc" },
+      ],
     })
 
     return NextResponse.json(plants)
@@ -38,7 +40,6 @@ export async function POST(req: Request) {
       return new NextResponse("Missing required fields", { status: 400 })
     }
 
-    // Verificar se o usuário existe, se não, criar
     const user = await prisma.user.findUnique({
       where: { id: userId },
     })
@@ -54,7 +55,6 @@ export async function POST(req: Request) {
       })
     }
 
-    // Obter a maior ordem de sequência (sem filtro de userId)
     const maxOrder = await prisma.plant.aggregate({
       _max: { maintenanceSequenceOrder: true },
     })
@@ -62,9 +62,27 @@ export async function POST(req: Request) {
     const nextOrder = (maxOrder._max.maintenanceSequenceOrder || 0) + 1
     const isFirstPlant = nextOrder === 1
 
-    // Usar uma transação para garantir a integridade dos dados
     const result = await prisma.$transaction(async (tx) => {
-      // Criar usina
+      let scheduledMaintenanceDate: Date
+
+      if (isFirstPlant) {
+        // Primeira usina: usa a data escolhida ou hoje
+        scheduledMaintenanceDate = maintenanceDate ? new Date(maintenanceDate) : new Date()
+      } else {
+        // Buscar a última manutenção (mais recente) registrada
+        const latestMaintenance = await tx.maintenanceRecord.findFirst({
+          orderBy: { startDate: "desc" },
+        })
+
+        if (latestMaintenance?.startDate) {
+          // Agenda 7 dias depois da última manutenção existente
+          scheduledMaintenanceDate = addDays(new Date(latestMaintenance.startDate), 7)
+        } else {
+          // Se não tiver nenhuma manutenção ainda, usa hoje
+          scheduledMaintenanceDate = new Date()
+        }
+      }
+
       const plant = await tx.plant.create({
         data: {
           name,
@@ -73,71 +91,20 @@ export async function POST(req: Request) {
           longitude,
           userId,
           maintenanceSequenceOrder: nextOrder,
-          nextMaintenanceDate: isFirstPlant && maintenanceDate ? new Date(maintenanceDate) : null,
+          nextMaintenanceDate: scheduledMaintenanceDate,
         },
       })
 
-      // Se for a primeira usina e tiver data de manutenção definida
-      if (isFirstPlant && maintenanceDate) {
-        // Criar manutenção inicial
-        await tx.maintenanceRecord.create({
-          data: {
-            plantId: plant.id,
-            userId,
-            startDate: new Date(maintenanceDate),
-            endDate: null,
-            notes: "Manutenção inicial agendada",
-          },
-        })
-      } else if (isFirstPlant) {
-        // Criar manutenção inicial para hoje se não tiver data específica
-        await tx.maintenanceRecord.create({
-          data: {
-            plantId: plant.id,
-            userId,
-            startDate: new Date(),
-            endDate: null,
-            notes: "Manutenção inicial automática",
-          },
-        })
-      }
-
-      // Se houver mais de uma usina, configurar as próximas manutenções
-      if (!isFirstPlant) {
-        const otherPlants = await tx.plant.findMany({
-          where: {
-            id: { not: plant.id },
-          },
-          orderBy: {
-            maintenanceSequenceOrder: "asc",
-          },
-        })
-
-        // Verificar se a primeira usina já tem manutenção agendada
-        const firstPlant = otherPlants[0]
-        if (firstPlant && firstPlant.nextMaintenanceDate) {
-          const nextMaintenanceDate = addDays(new Date(firstPlant.nextMaintenanceDate), 7)
-
-          // Definir a próxima manutenção da nova usina para uma semana depois da primeira
-          await tx.plant.update({
-            where: { id: plant.id },
-            data: {
-              nextMaintenanceDate: nextMaintenanceDate,
-            },
-          })
-
-          // Criar um registro de manutenção para a nova usina
-          await tx.maintenanceRecord.create({
-            data: {
-              plantId: plant.id,
-              userId,
-              startDate: nextMaintenanceDate,
-              endDate: null,
-              notes: "Manutenção agendada automaticamente",
-            },
-          })
-        }
-      }
+      await tx.maintenanceRecord.create({
+        data: {
+          plantId: plant.id,
+          userId,
+          startDate: scheduledMaintenanceDate,
+          endDate: null,
+          notes: isFirstPlant ? "Manutenção inicial agendada" : "Manutenção agendada automaticamente",
+          isCompleted: false,
+        },
+      })
 
       return plant
     })

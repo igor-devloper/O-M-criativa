@@ -5,6 +5,8 @@ import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { PlantDropdownMenu } from "./components/dropdown-planta"
 import { AddPowerPlantDialog } from "./components/add-power-plant-dialog"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
 
 export default async function PlantsPage() {
   const { userId } = await auth()
@@ -13,10 +15,32 @@ export default async function PlantsPage() {
     redirect("/login")
   }
 
-  const plants = await prisma.plant.findMany({
-    orderBy: { createdAt: "asc" },
-  })
+  // const plants = await prisma.plant.findMany({
+  //   orderBy: { createdAt: "asc" },
+  // })
 
+  const maintenanceRecords = await prisma.maintenanceRecord.findMany({
+    include: {
+      plant: {
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          nextMaintenanceDate: true,
+          latitude: true,
+          longitude: true,
+          status: true,
+          lastMaintenanceDate: true,
+          maintenanceSequenceOrder:true,
+          createdAt: true,
+          userId: true,
+        },
+      },
+    },
+    orderBy: {
+      startDate: "asc",
+    },
+  });
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
@@ -27,20 +51,20 @@ export default async function PlantsPage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {plants.map((plant) => (
+          {maintenanceRecords.map((plant) => (
             <Card key={plant.id}>
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
-                  <CardTitle>{plant.name}</CardTitle>
-                  <PlantDropdownMenu plant={plant} />
+                  <CardTitle>{plant.plant.name}</CardTitle>
+                  <PlantDropdownMenu plant={plant.plant} />
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground mb-2">Endereço: {plant.address}</p>
+                <p className="text-sm text-muted-foreground mb-2">Endereço: {plant.plant.address}</p>
                 <p className="text-sm text-muted-foreground mb-4">
                   Próxima manutenção:{" "}
-                  {plant.nextMaintenanceDate
-                    ? new Date(plant.nextMaintenanceDate).toLocaleDateString()
+                  {plant.startDate
+                    ? format(new Date(plant.startDate), "PPP", {locale: ptBR,})
                     : "Não agendada"}
                 </p>
               </CardContent>
